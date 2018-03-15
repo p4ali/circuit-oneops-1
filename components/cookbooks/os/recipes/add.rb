@@ -34,7 +34,12 @@ if (ostype =~ /ubuntu-16.04/)
 end
 
 # detect fast image
-if ostype !~ /windows/ && File.exist?("/etc/oneops-tools-inventory.yml")
+imagemap = JSON.parse( cloud[:imagemap] )
+server_image_name = ""
+if node['workorder']['payLoad']['ManagedVia'][0]['ciAttributes'].has_key?('server_image_name')
+  server_image_name = node['workorder']['payLoad']['ManagedVia'][0]['ciAttributes']['server_image_name']
+end
+if (node['os']['image_id'].to_s.empty? && (imagemap[ostype].split(':')).size > 2 && (imagemap[ostype].split(':'))[2].to_s =~ /FAST/) || server_image_name =~ /FAST/
   Chef::Log.info('Fast image detected')
   node.set['fast_image'] = true
 else

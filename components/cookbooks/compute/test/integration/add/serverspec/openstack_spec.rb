@@ -1,25 +1,10 @@
-require "#{CIRCUIT_PATH}/components/spec_helper"
-require "#{COOKBOOKS_PATH}/compute/libraries/compute_util"
+require "/opt/oneops/inductor/circuit-oneops-1/components/spec_helper.rb"
 require 'fog'
-
 
 cloud_name = $node['workorder']['cloud']['ciName']
 provider = $node['workorder']['services']['compute'][cloud_name]['ciClassName'].gsub("cloud.service.","").downcase.split(".").last
 
 if provider =~ /openstack/i
-  cloud = $node[:workorder][:services][:compute][cloud_name][:ciAttributes]
-  os = nil
-  ostype = "default-cloud"
-  if $node[:workorder][:payLoad].has_key?("os")
-    os = $node[:workorder][:payLoad][:os].first
-    ostype = os[:ciAttributes][:ostype]
-  else
-    Chef::Log.warn("missing os payload - using default-cloud")
-    if ostype == "default-cloud"
-      ostype = cloud[:ostype]
-    end
-  end
-
   compute_service = $node['workorder']['services']['compute'][cloud_name]['ciAttributes']
   rfcCi = $node['workorder']['rfcCi']
   nsPathParts = rfcCi['nsPath'].split("/")
@@ -53,7 +38,6 @@ if provider =~ /openstack/i
       expect(server.nil?).to be == false
     end
   end
-
   describe "Compute", :if => !server.nil? do
     it "Should be in state ACTIVE" do
       expect(server.state).to be == "ACTIVE"
@@ -79,38 +63,5 @@ if provider =~ /openstack/i
     it "Instance should be #{rfcCi['ciId']}" do
       expect(server_metadata['instance'].to_i).to be == rfcCi['ciId'].to_i
     end
-  end
-
-  describe 'Image used' do
-    image_used = conn.images.get (server.image)['id']
-    pattern = "wmlabs-#{ostype.gsub(/\./, "")}"
-    $node['workorder']['config']['TESTING_MODE'].to_s.downcase == "true" ? pattern_snap = "RandomString" : pattern_snap = "snapshot"
-    images = conn.images
-
-    if image_used.name =~ /#{pattern}/i && image_used.name !~ /#{pattern_snap}/i
-      context "When a fast image" do
-        it "Flag should be set" do
-          expect($node['workorder']['config']['FAST_IMAGE'].to_s.downcase == "true").to be true
-        end
-        it 'Should be latest' do
-          latest = find_latest_fast_image(images, pattern, pattern_snap)
-          expect(latest.name).to eql(image_used.name)
-        end
-      end
-    end
-
-    if image_used.name =~ /#{pattern_snap}/i
-      context "When a fast image snapshot" do
-        it 'Flag should be set' do
-          expect($node['workorder']['config']['TESTING_MODE'].to_s.downcase == "true").to be true
-        end
-        it 'Should be latest' do
-
-          latest = find_latest_fast_image(images, pattern, pattern_snap)
-          expect(latest.name).to eql(image_used.name)
-        end
-      end
-    end
-
   end
 end
